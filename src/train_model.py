@@ -5,8 +5,11 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
+
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -16,6 +19,7 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
 )
+
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.dummy import DummyClassifier
 
@@ -24,10 +28,12 @@ DATA_PATH = "data/processed/modeling_data.csv"
 TARGET_COLUMN = "GLP_MED12M"
 
 
-# Load the cleaned modeling dataset
+# ============================================================
+# LOAD DATA
+# ============================================================
+
 df = pd.read_csv(DATA_PATH)
 
-# Separate predictors from target
 X = df.drop(columns=[TARGET_COLUMN])
 y = df[TARGET_COLUMN]
 
@@ -41,7 +47,10 @@ print("\nTarget distribution:")
 print(y.value_counts())
 
 
-# Split the data into training and testing sets
+# ============================================================
+# TRAIN / TEST SPLIT
+# ============================================================
+
 X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
@@ -62,7 +71,10 @@ print("\nTesting target distribution:")
 print(y_test.value_counts())
 
 
-# Define the categorical predictors
+# ============================================================
+# PREPROCESSING
+# ============================================================
+
 categorical_features = [
     "CHR_OBEV",
     "DIB_DIBEV",
@@ -83,21 +95,34 @@ print("\nCategorical predictors:")
 print(categorical_features)
 
 
-# Preprocess categorical predictors:
-# 1. Fill missing values with the most common category
-# 2. Convert categorical values into one-hot encoded features
+# Fill missing values and one-hot encode categorical variables.
+#
+# sparse_output=False is important because
+# HistGradientBoostingClassifier requires dense input.
 categorical_transformer = Pipeline(
     steps=[
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore")),
+        (
+            "imputer",
+            SimpleImputer(strategy="most_frequent")
+        ),
+        (
+            "onehot",
+            OneHotEncoder(
+                handle_unknown="ignore",
+                sparse_output=False
+            )
+        ),
     ]
 )
 
 
-# Apply the categorical preprocessing to all predictor variables
 preprocessor = ColumnTransformer(
     transformers=[
-        ("categorical", categorical_transformer, categorical_features)
+        (
+            "categorical",
+            categorical_transformer,
+            categorical_features
+        )
     ]
 )
 
@@ -109,7 +134,6 @@ print("\nPreprocessing pipeline created.")
 # BASELINE LOGISTIC REGRESSION
 # ============================================================
 
-# Define the baseline logistic regression model
 model = LogisticRegression(
     max_iter=1000
 )
@@ -117,7 +141,6 @@ model = LogisticRegression(
 print("\nBaseline model created.")
 
 
-# Combine preprocessing and the baseline model
 pipeline = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
@@ -129,28 +152,53 @@ pipeline = Pipeline(
 print("\nComplete ML pipeline created.")
 
 
-# Train the baseline model using only the training data
 pipeline.fit(X_train, y_train)
 
 print("\nModel training complete.")
 
 
-# Generate predictions on the unseen test set
 y_pred = pipeline.predict(X_test)
 y_prob = pipeline.predict_proba(X_test)[:, 1]
 
 
-# Calculate evaluation metrics
-accuracy = accuracy_score(y_test, y_pred)
-precision = precision_score(y_test, y_pred)
-recall = recall_score(y_test, y_pred)
-f1 = f1_score(y_test, y_pred)
-roc_auc = roc_auc_score(y_test, y_prob)
-pr_auc = average_precision_score(y_test, y_prob)
+accuracy = accuracy_score(
+    y_test,
+    y_pred
+)
+
+precision = precision_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+recall = recall_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+f1 = f1_score(
+    y_test,
+    y_pred,
+    zero_division=0
+)
+
+roc_auc = roc_auc_score(
+    y_test,
+    y_prob
+)
+
+pr_auc = average_precision_score(
+    y_test,
+    y_prob
+)
 
 
-# Calculate the confusion matrix
-tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+tn, fp, fn, tp = confusion_matrix(
+    y_test,
+    y_pred
+).ravel()
 
 
 print("\nConfusion matrix:")
@@ -173,13 +221,20 @@ print(f"PR-AUC:    {pr_auc:.3f}")
 # THRESHOLD ANALYSIS
 # ============================================================
 
-# Examine how different probability thresholds affect precision and recall
-thresholds_to_test = [0.20, 0.30, 0.40, 0.50]
+thresholds_to_test = [
+    0.20,
+    0.30,
+    0.40,
+    0.50
+]
 
 print("\nThreshold analysis:")
 
 for threshold in thresholds_to_test:
-    threshold_predictions = (y_prob >= threshold).astype(int)
+
+    threshold_predictions = (
+        y_prob >= threshold
+    ).astype(int)
 
     threshold_precision = precision_score(
         y_test,
@@ -211,7 +266,6 @@ for threshold in thresholds_to_test:
 # CROSS-VALIDATION
 # ============================================================
 
-# Perform 5-fold stratified cross-validation on the training data
 cv = StratifiedKFold(
     n_splits=5,
     shuffle=True,
@@ -237,14 +291,19 @@ print(f"Standard deviation: {cv_scores.std():.3f}")
 # NO-SKILL BASELINE
 # ============================================================
 
-# Establish a no-skill baseline for comparison
 dummy_model = DummyClassifier(
     strategy="prior"
 )
 
-dummy_model.fit(X_train, y_train)
+dummy_model.fit(
+    X_train,
+    y_train
+)
 
-dummy_probabilities = dummy_model.predict_proba(X_test)[:, 1]
+dummy_probabilities = dummy_model.predict_proba(
+    X_test
+)[:, 1]
+
 
 dummy_roc_auc = roc_auc_score(
     y_test,
@@ -266,7 +325,6 @@ print(f"PR-AUC:  {dummy_pr_auc:.3f}")
 # CLASS-WEIGHTED LOGISTIC REGRESSION
 # ============================================================
 
-# Define a class-weighted logistic regression model
 balanced_model = LogisticRegression(
     max_iter=1000,
     class_weight="balanced"
@@ -275,7 +333,6 @@ balanced_model = LogisticRegression(
 print("\nClass-weighted model created.")
 
 
-# Combine the existing preprocessing with the class-weighted model
 balanced_pipeline = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
@@ -283,23 +340,30 @@ balanced_pipeline = Pipeline(
     ]
 )
 
+
 print("\nClass-weighted ML pipeline created.")
 
 
-# Train the class-weighted model using the same training data
-balanced_pipeline.fit(X_train, y_train)
+balanced_pipeline.fit(
+    X_train,
+    y_train
+)
 
 print("\nClass-weighted model training complete.")
 
 
-# Generate predictions from the class-weighted model
-balanced_pred = balanced_pipeline.predict(X_test)
-balanced_prob = balanced_pipeline.predict_proba(X_test)[:, 1]
+balanced_pred = balanced_pipeline.predict(
+    X_test
+)
+
+balanced_prob = balanced_pipeline.predict_proba(
+    X_test
+)[:, 1]
+
 
 print("\nClass-weighted predictions generated.")
 
 
-# Calculate evaluation metrics for the class-weighted model
 balanced_accuracy = accuracy_score(
     y_test,
     balanced_pred
@@ -347,7 +411,6 @@ print(f"PR-AUC:    {balanced_pr_auc:.3f}")
 # RANDOM FOREST
 # ============================================================
 
-# Define the Random Forest model
 random_forest_model = RandomForestClassifier(
     n_estimators=300,
     max_depth=None,
@@ -360,7 +423,6 @@ random_forest_model = RandomForestClassifier(
 print("\nRandom Forest model created.")
 
 
-# Combine the existing preprocessing with the Random Forest
 random_forest_pipeline = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
@@ -368,23 +430,30 @@ random_forest_pipeline = Pipeline(
     ]
 )
 
+
 print("\nRandom Forest pipeline created.")
 
 
-# Train the Random Forest using only the training data
-random_forest_pipeline.fit(X_train, y_train)
+random_forest_pipeline.fit(
+    X_train,
+    y_train
+)
 
 print("\nRandom Forest training complete.")
 
 
-# Generate predictions from the Random Forest
-random_forest_pred = random_forest_pipeline.predict(X_test)
-random_forest_prob = random_forest_pipeline.predict_proba(X_test)[:, 1]
+random_forest_pred = random_forest_pipeline.predict(
+    X_test
+)
+
+random_forest_prob = (
+    random_forest_pipeline.predict_proba(X_test)[:, 1]
+)
+
 
 print("\nRandom Forest predictions generated.")
 
 
-# Calculate evaluation metrics for the Random Forest
 random_forest_accuracy = accuracy_score(
     y_test,
     random_forest_pred
@@ -429,59 +498,164 @@ print(f"PR-AUC:    {random_forest_pr_auc:.3f}")
 
 
 # ============================================================
+# HISTOGRAM GRADIENT BOOSTING
+# ============================================================
+
+gradient_boosting_model = HistGradientBoostingClassifier(
+    max_iter=200,
+    learning_rate=0.05,
+    max_leaf_nodes=15,
+    min_samples_leaf=20,
+    random_state=42
+)
+
+print("\nGradient Boosting model created.")
+
+
+gradient_boosting_pipeline = Pipeline(
+    steps=[
+        ("preprocessor", preprocessor),
+        ("model", gradient_boosting_model)
+    ]
+)
+
+
+print("\nGradient Boosting pipeline created.")
+
+
+gradient_boosting_pipeline.fit(
+    X_train,
+    y_train
+)
+
+print("\nGradient Boosting training complete.")
+
+
+gradient_boosting_pred = (
+    gradient_boosting_pipeline.predict(X_test)
+)
+
+gradient_boosting_prob = (
+    gradient_boosting_pipeline.predict_proba(X_test)[:, 1]
+)
+
+
+print("\nGradient Boosting predictions generated.")
+
+
+gradient_boosting_accuracy = accuracy_score(
+    y_test,
+    gradient_boosting_pred
+)
+
+gradient_boosting_precision = precision_score(
+    y_test,
+    gradient_boosting_pred,
+    zero_division=0
+)
+
+gradient_boosting_recall = recall_score(
+    y_test,
+    gradient_boosting_pred,
+    zero_division=0
+)
+
+gradient_boosting_f1 = f1_score(
+    y_test,
+    gradient_boosting_pred,
+    zero_division=0
+)
+
+gradient_boosting_roc_auc = roc_auc_score(
+    y_test,
+    gradient_boosting_prob
+)
+
+gradient_boosting_pr_auc = average_precision_score(
+    y_test,
+    gradient_boosting_prob
+)
+
+
+print("\nGradient Boosting evaluation:")
+print(f"Accuracy:  {gradient_boosting_accuracy:.3f}")
+print(f"Precision: {gradient_boosting_precision:.3f}")
+print(f"Recall:    {gradient_boosting_recall:.3f}")
+print(f"F1 Score:  {gradient_boosting_f1:.3f}")
+print(f"ROC-AUC:   {gradient_boosting_roc_auc:.3f}")
+print(f"PR-AUC:    {gradient_boosting_pr_auc:.3f}")
+
+
+# ============================================================
 # MODEL COMPARISON
 # ============================================================
 
 print("\nModel comparison:")
-print("-" * 75)
+print("-" * 100)
+
 print(
     f"{'Metric':<15}"
     f"{'Baseline':>15}"
     f"{'Balanced':>15}"
     f"{'Random Forest':>20}"
+    f"{'Gradient Boosting':>22}"
 )
-print("-" * 75)
+
+print("-" * 100)
+
 
 print(
     f"{'Accuracy':<15}"
     f"{accuracy:>15.3f}"
     f"{balanced_accuracy:>15.3f}"
     f"{random_forest_accuracy:>20.3f}"
+    f"{gradient_boosting_accuracy:>22.3f}"
 )
+
 
 print(
     f"{'Precision':<15}"
     f"{precision:>15.3f}"
     f"{balanced_precision:>15.3f}"
     f"{random_forest_precision:>20.3f}"
+    f"{gradient_boosting_precision:>22.3f}"
 )
+
 
 print(
     f"{'Recall':<15}"
     f"{recall:>15.3f}"
     f"{balanced_recall:>15.3f}"
     f"{random_forest_recall:>20.3f}"
+    f"{gradient_boosting_recall:>22.3f}"
 )
+
 
 print(
     f"{'F1 Score':<15}"
     f"{f1:>15.3f}"
     f"{balanced_f1:>15.3f}"
     f"{random_forest_f1:>20.3f}"
+    f"{gradient_boosting_f1:>22.3f}"
 )
+
 
 print(
     f"{'ROC-AUC':<15}"
     f"{roc_auc:>15.3f}"
     f"{balanced_roc_auc:>15.3f}"
     f"{random_forest_roc_auc:>20.3f}"
+    f"{gradient_boosting_roc_auc:>22.3f}"
 )
+
 
 print(
     f"{'PR-AUC':<15}"
     f"{pr_auc:>15.3f}"
     f"{balanced_pr_auc:>15.3f}"
     f"{random_forest_pr_auc:>20.3f}"
+    f"{gradient_boosting_pr_auc:>22.3f}"
 )
 
-print("-" * 75)
+
+print("-" * 100)
