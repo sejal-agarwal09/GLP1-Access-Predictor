@@ -1,6 +1,7 @@
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -214,3 +215,28 @@ print("\n5-fold cross-validation:")
 print(f"Fold ROC-AUC scores: {cv_scores}")
 print(f"Mean ROC-AUC: {cv_scores.mean():.3f}")
 print(f"Standard deviation: {cv_scores.std():.3f}")
+
+# Establish a no-skill baseline for comparison
+dummy_model = DummyClassifier(
+    strategy="prior"
+)
+
+dummy_model.fit(X_train, y_train)
+
+dummy_probabilities = dummy_model.predict_proba(X_test)[:, 1]
+
+dummy_roc_auc = roc_auc_score(
+    y_test,
+    dummy_probabilities
+)
+
+dummy_pr_auc = average_precision_score(
+    y_test,
+    dummy_probabilities
+)
+
+
+print("\nNo-skill baseline:")
+print(f"ROC-AUC: {dummy_roc_auc:.3f}")
+print(f"PR-AUC:  {dummy_pr_auc:.3f}")
+
