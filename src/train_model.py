@@ -7,6 +7,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 
+
 DATA_PATH = "data/processed/modeling_data.csv"
 TARGET_COLUMN = "GLP_MED12M"
 
@@ -26,6 +27,7 @@ print(f"Target: {TARGET_COLUMN}")
 
 print("\nTarget distribution:")
 print(y.value_counts())
+
 
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
@@ -47,6 +49,7 @@ print(y_train.value_counts())
 print("\nTesting target distribution:")
 print(y_test.value_counts())
 
+
 # Define the categorical predictors
 categorical_features = [
     "CHR_OBEV",
@@ -63,6 +66,11 @@ categorical_features = [
     "BMICAT6",
 ]
 
+
+print("\nCategorical predictors:")
+print(categorical_features)
+
+
 # Preprocess categorical predictors:
 # 1. Fill missing values with the most common category
 # 2. Convert categorical values into one-hot encoded features
@@ -73,12 +81,17 @@ categorical_transformer = Pipeline(
     ]
 )
 
+
 # Apply the categorical preprocessing to all predictor variables
 preprocessor = ColumnTransformer(
     transformers=[
         ("categorical", categorical_transformer, categorical_features)
     ]
 )
+
+
+print("\nPreprocessing pipeline created.")
+
 
 # Define the baseline logistic regression model
 model = LogisticRegression(
@@ -88,6 +101,7 @@ model = LogisticRegression(
 
 print("\nBaseline model created.")
 
+
 # Combine preprocessing and the machine learning model
 pipeline = Pipeline(
     steps=[
@@ -95,15 +109,12 @@ pipeline = Pipeline(
         ("model", model)
     ]
 )
+
+
 print("\nComplete ML pipeline created.")
+
 
 # Train the complete pipeline using only the training data
 pipeline.fit(X_train, y_train)
 
 print("\nModel training complete.")
-
-print("\nPreprocessing pipeline created.")
-
-print("\nCategorical predictors:")
-print(categorical_features)
-
