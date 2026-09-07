@@ -1,13 +1,10 @@
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from sklearn.dummy import DummyClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.metrics import precision_recall_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -18,6 +15,8 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
 )
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.dummy import DummyClassifier
 
 
 DATA_PATH = "data/processed/modeling_data.csv"
@@ -110,11 +109,10 @@ model = LogisticRegression(
     max_iter=1000
 )
 
-
 print("\nBaseline model created.")
 
 
-# Combine preprocessing and the machine learning model
+# Combine preprocessing and the baseline model
 pipeline = Pipeline(
     steps=[
         ("preprocessor", preprocessor),
@@ -126,10 +124,11 @@ pipeline = Pipeline(
 print("\nComplete ML pipeline created.")
 
 
-# Train the complete pipeline using only the training data
+# Train the baseline model using only the training data
 pipeline.fit(X_train, y_train)
 
 print("\nModel training complete.")
+
 
 # Generate predictions on the unseen test set
 y_pred = pipeline.predict(X_test)
@@ -143,6 +142,8 @@ recall = recall_score(y_test, y_pred)
 f1 = f1_score(y_test, y_pred)
 roc_auc = roc_auc_score(y_test, y_prob)
 pr_auc = average_precision_score(y_test, y_prob)
+
+
 # Calculate the confusion matrix
 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 
@@ -161,6 +162,7 @@ print(f"Recall:    {recall:.3f}")
 print(f"F1 Score:  {f1:.3f}")
 print(f"ROC-AUC:   {roc_auc:.3f}")
 print(f"PR-AUC:    {pr_auc:.3f}")
+
 
 # Examine how different probability thresholds affect precision and recall
 thresholds_to_test = [0.20, 0.30, 0.40, 0.50]
@@ -194,8 +196,9 @@ for threshold in thresholds_to_test:
         f"Recall: {threshold_recall:.3f} | "
         f"F1: {threshold_f1:.3f}"
     )
-    
-    # Perform 5-fold stratified cross-validation on the training data
+
+
+# Perform 5-fold stratified cross-validation on the training data
 cv = StratifiedKFold(
     n_splits=5,
     shuffle=True,
@@ -215,6 +218,7 @@ print("\n5-fold cross-validation:")
 print(f"Fold ROC-AUC scores: {cv_scores}")
 print(f"Mean ROC-AUC: {cv_scores.mean():.3f}")
 print(f"Standard deviation: {cv_scores.std():.3f}")
+
 
 # Establish a no-skill baseline for comparison
 dummy_model = DummyClassifier(
@@ -240,3 +244,65 @@ print("\nNo-skill baseline:")
 print(f"ROC-AUC: {dummy_roc_auc:.3f}")
 print(f"PR-AUC:  {dummy_pr_auc:.3f}")
 
+
+# Define a class-weighted logistic regression model
+balanced_model = LogisticRegression(
+    max_iter=1000,
+    class_weight="balanced"
+)
+
+print("\nClass-weighted model created.")
+
+
+# Combine the existing preprocessing with the class-weighted model
+balanced_pipeline = Pipeline(
+    steps=[
+        ("preprocessor", preprocessor),
+        ("model", balanced_model)
+    ]
+)
+
+print("\nClass-weighted ML pipeline created.")
+
+
+# Train the class-weighted model using the same training data
+balanced_pipeline.fit(X_train, y_train)
+
+print("\nClass-weighted model training complete.")
+
+
+# Generate predictions from the class-weighted model
+balanced_pred = balanced_pipeline.predict(X_test)
+balanced_prob = balanced_pipeline.predict_proba(X_test)[:, 1]
+
+print("\nClass-weighted predictions generated.")
+
+
+# Calculate evaluation metrics for the class-weighted model
+balanced_accuracy = accuracy_score(y_test, balanced_pred)
+balanced_precision = precision_score(y_test, balanced_pred)
+balanced_recall = recall_score(y_test, balanced_pred)
+balanced_f1 = f1_score(y_test, balanced_pred)
+balanced_roc_auc = roc_auc_score(y_test, balanced_prob)
+balanced_pr_auc = average_precision_score(y_test, balanced_prob)
+
+print("\nClass-weighted model evaluation:")
+print(f"Accuracy:  {balanced_accuracy:.3f}")
+print(f"Precision: {balanced_precision:.3f}")
+print(f"Recall:    {balanced_recall:.3f}")
+print(f"F1 Score:  {balanced_f1:.3f}")
+print(f"ROC-AUC:   {balanced_roc_auc:.3f}")
+print(f"PR-AUC:    {balanced_pr_auc:.3f}")
+
+
+# Compare the baseline and class-weighted models
+print("\nModel comparison:")
+print("-" * 60)
+print(f"{'Metric':<15} {'Baseline':>12} {'Balanced':>12}")
+print("-" * 60)
+print(f"{'Accuracy':<15} {accuracy:>12.3f} {balanced_accuracy:>12.3f}")
+print(f"{'Precision':<15} {precision:>12.3f} {balanced_precision:>12.3f}")
+print(f"{'Recall':<15} {recall:>12.3f} {balanced_recall:>12.3f}")
+print(f"{'F1 Score':<15} {f1:>12.3f} {balanced_f1:>12.3f}")
+print(f"{'ROC-AUC':<15} {roc_auc:>12.3f} {balanced_roc_auc:>12.3f}")
+print(f"{'PR-AUC':<15} {pr_auc:>12.3f} {balanced_pr_auc:>12.3f}")
