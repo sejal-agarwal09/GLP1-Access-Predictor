@@ -6,7 +6,15 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
-
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    average_precision_score,
+    confusion_matrix,
+)
 
 DATA_PATH = "data/processed/modeling_data.csv"
 TARGET_COLUMN = "GLP_MED12M"
@@ -118,3 +126,34 @@ print("\nComplete ML pipeline created.")
 pipeline.fit(X_train, y_train)
 
 print("\nModel training complete.")
+
+# Generate predictions on the unseen test set
+y_pred = pipeline.predict(X_test)
+y_prob = pipeline.predict_proba(X_test)[:, 1]
+
+
+# Calculate evaluation metrics
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+roc_auc = roc_auc_score(y_test, y_prob)
+pr_auc = average_precision_score(y_test, y_prob)
+# Calculate the confusion matrix
+tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+
+
+print("\nConfusion matrix:")
+print(f"True negatives:  {tn}")
+print(f"False positives: {fp}")
+print(f"False negatives: {fn}")
+print(f"True positives:  {tp}")
+
+
+print("\nModel evaluation:")
+print(f"Accuracy:  {accuracy:.3f}")
+print(f"Precision: {precision:.3f}")
+print(f"Recall:    {recall:.3f}")
+print(f"F1 Score:  {f1:.3f}")
+print(f"ROC-AUC:   {roc_auc:.3f}")
+print(f"PR-AUC:    {pr_auc:.3f}")
