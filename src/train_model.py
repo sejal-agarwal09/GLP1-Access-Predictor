@@ -6,6 +6,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -104,6 +105,10 @@ preprocessor = ColumnTransformer(
 print("\nPreprocessing pipeline created.")
 
 
+# ============================================================
+# BASELINE LOGISTIC REGRESSION
+# ============================================================
+
 # Define the baseline logistic regression model
 model = LogisticRegression(
     max_iter=1000
@@ -164,6 +169,10 @@ print(f"ROC-AUC:   {roc_auc:.3f}")
 print(f"PR-AUC:    {pr_auc:.3f}")
 
 
+# ============================================================
+# THRESHOLD ANALYSIS
+# ============================================================
+
 # Examine how different probability thresholds affect precision and recall
 thresholds_to_test = [0.20, 0.30, 0.40, 0.50]
 
@@ -198,6 +207,10 @@ for threshold in thresholds_to_test:
     )
 
 
+# ============================================================
+# CROSS-VALIDATION
+# ============================================================
+
 # Perform 5-fold stratified cross-validation on the training data
 cv = StratifiedKFold(
     n_splits=5,
@@ -219,6 +232,10 @@ print(f"Fold ROC-AUC scores: {cv_scores}")
 print(f"Mean ROC-AUC: {cv_scores.mean():.3f}")
 print(f"Standard deviation: {cv_scores.std():.3f}")
 
+
+# ============================================================
+# NO-SKILL BASELINE
+# ============================================================
 
 # Establish a no-skill baseline for comparison
 dummy_model = DummyClassifier(
@@ -244,6 +261,10 @@ print("\nNo-skill baseline:")
 print(f"ROC-AUC: {dummy_roc_auc:.3f}")
 print(f"PR-AUC:  {dummy_pr_auc:.3f}")
 
+
+# ============================================================
+# CLASS-WEIGHTED LOGISTIC REGRESSION
+# ============================================================
 
 # Define a class-weighted logistic regression model
 balanced_model = LogisticRegression(
@@ -279,12 +300,39 @@ print("\nClass-weighted predictions generated.")
 
 
 # Calculate evaluation metrics for the class-weighted model
-balanced_accuracy = accuracy_score(y_test, balanced_pred)
-balanced_precision = precision_score(y_test, balanced_pred)
-balanced_recall = recall_score(y_test, balanced_pred)
-balanced_f1 = f1_score(y_test, balanced_pred)
-balanced_roc_auc = roc_auc_score(y_test, balanced_prob)
-balanced_pr_auc = average_precision_score(y_test, balanced_prob)
+balanced_accuracy = accuracy_score(
+    y_test,
+    balanced_pred
+)
+
+balanced_precision = precision_score(
+    y_test,
+    balanced_pred,
+    zero_division=0
+)
+
+balanced_recall = recall_score(
+    y_test,
+    balanced_pred,
+    zero_division=0
+)
+
+balanced_f1 = f1_score(
+    y_test,
+    balanced_pred,
+    zero_division=0
+)
+
+balanced_roc_auc = roc_auc_score(
+    y_test,
+    balanced_prob
+)
+
+balanced_pr_auc = average_precision_score(
+    y_test,
+    balanced_prob
+)
+
 
 print("\nClass-weighted model evaluation:")
 print(f"Accuracy:  {balanced_accuracy:.3f}")
@@ -295,14 +343,145 @@ print(f"ROC-AUC:   {balanced_roc_auc:.3f}")
 print(f"PR-AUC:    {balanced_pr_auc:.3f}")
 
 
-# Compare the baseline and class-weighted models
+# ============================================================
+# RANDOM FOREST
+# ============================================================
+
+# Define the Random Forest model
+random_forest_model = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=None,
+    min_samples_leaf=5,
+    class_weight="balanced",
+    random_state=42,
+    n_jobs=-1
+)
+
+print("\nRandom Forest model created.")
+
+
+# Combine the existing preprocessing with the Random Forest
+random_forest_pipeline = Pipeline(
+    steps=[
+        ("preprocessor", preprocessor),
+        ("model", random_forest_model)
+    ]
+)
+
+print("\nRandom Forest pipeline created.")
+
+
+# Train the Random Forest using only the training data
+random_forest_pipeline.fit(X_train, y_train)
+
+print("\nRandom Forest training complete.")
+
+
+# Generate predictions from the Random Forest
+random_forest_pred = random_forest_pipeline.predict(X_test)
+random_forest_prob = random_forest_pipeline.predict_proba(X_test)[:, 1]
+
+print("\nRandom Forest predictions generated.")
+
+
+# Calculate evaluation metrics for the Random Forest
+random_forest_accuracy = accuracy_score(
+    y_test,
+    random_forest_pred
+)
+
+random_forest_precision = precision_score(
+    y_test,
+    random_forest_pred,
+    zero_division=0
+)
+
+random_forest_recall = recall_score(
+    y_test,
+    random_forest_pred,
+    zero_division=0
+)
+
+random_forest_f1 = f1_score(
+    y_test,
+    random_forest_pred,
+    zero_division=0
+)
+
+random_forest_roc_auc = roc_auc_score(
+    y_test,
+    random_forest_prob
+)
+
+random_forest_pr_auc = average_precision_score(
+    y_test,
+    random_forest_prob
+)
+
+
+print("\nRandom Forest evaluation:")
+print(f"Accuracy:  {random_forest_accuracy:.3f}")
+print(f"Precision: {random_forest_precision:.3f}")
+print(f"Recall:    {random_forest_recall:.3f}")
+print(f"F1 Score:  {random_forest_f1:.3f}")
+print(f"ROC-AUC:   {random_forest_roc_auc:.3f}")
+print(f"PR-AUC:    {random_forest_pr_auc:.3f}")
+
+
+# ============================================================
+# MODEL COMPARISON
+# ============================================================
+
 print("\nModel comparison:")
-print("-" * 60)
-print(f"{'Metric':<15} {'Baseline':>12} {'Balanced':>12}")
-print("-" * 60)
-print(f"{'Accuracy':<15} {accuracy:>12.3f} {balanced_accuracy:>12.3f}")
-print(f"{'Precision':<15} {precision:>12.3f} {balanced_precision:>12.3f}")
-print(f"{'Recall':<15} {recall:>12.3f} {balanced_recall:>12.3f}")
-print(f"{'F1 Score':<15} {f1:>12.3f} {balanced_f1:>12.3f}")
-print(f"{'ROC-AUC':<15} {roc_auc:>12.3f} {balanced_roc_auc:>12.3f}")
-print(f"{'PR-AUC':<15} {pr_auc:>12.3f} {balanced_pr_auc:>12.3f}")
+print("-" * 75)
+print(
+    f"{'Metric':<15}"
+    f"{'Baseline':>15}"
+    f"{'Balanced':>15}"
+    f"{'Random Forest':>20}"
+)
+print("-" * 75)
+
+print(
+    f"{'Accuracy':<15}"
+    f"{accuracy:>15.3f}"
+    f"{balanced_accuracy:>15.3f}"
+    f"{random_forest_accuracy:>20.3f}"
+)
+
+print(
+    f"{'Precision':<15}"
+    f"{precision:>15.3f}"
+    f"{balanced_precision:>15.3f}"
+    f"{random_forest_precision:>20.3f}"
+)
+
+print(
+    f"{'Recall':<15}"
+    f"{recall:>15.3f}"
+    f"{balanced_recall:>15.3f}"
+    f"{random_forest_recall:>20.3f}"
+)
+
+print(
+    f"{'F1 Score':<15}"
+    f"{f1:>15.3f}"
+    f"{balanced_f1:>15.3f}"
+    f"{random_forest_f1:>20.3f}"
+)
+
+print(
+    f"{'ROC-AUC':<15}"
+    f"{roc_auc:>15.3f}"
+    f"{balanced_roc_auc:>15.3f}"
+    f"{random_forest_roc_auc:>20.3f}"
+)
+
+print(
+    f"{'PR-AUC':<15}"
+    f"{pr_auc:>15.3f}"
+    f"{balanced_pr_auc:>15.3f}"
+    f"{random_forest_pr_auc:>20.3f}"
+)
+
+print("-" * 75)
