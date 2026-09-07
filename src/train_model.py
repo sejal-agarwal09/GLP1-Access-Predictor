@@ -5,6 +5,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import precision_recall_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
@@ -15,6 +16,7 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
 )
+
 
 DATA_PATH = "data/processed/modeling_data.csv"
 TARGET_COLUMN = "GLP_MED12M"
@@ -157,3 +159,36 @@ print(f"Recall:    {recall:.3f}")
 print(f"F1 Score:  {f1:.3f}")
 print(f"ROC-AUC:   {roc_auc:.3f}")
 print(f"PR-AUC:    {pr_auc:.3f}")
+
+# Examine how different probability thresholds affect precision and recall
+thresholds_to_test = [0.20, 0.30, 0.40, 0.50]
+
+print("\nThreshold analysis:")
+
+for threshold in thresholds_to_test:
+    threshold_predictions = (y_prob >= threshold).astype(int)
+
+    threshold_precision = precision_score(
+        y_test,
+        threshold_predictions,
+        zero_division=0
+    )
+
+    threshold_recall = recall_score(
+        y_test,
+        threshold_predictions,
+        zero_division=0
+    )
+
+    threshold_f1 = f1_score(
+        y_test,
+        threshold_predictions,
+        zero_division=0
+    )
+
+    print(
+        f"Threshold {threshold:.2f} | "
+        f"Precision: {threshold_precision:.3f} | "
+        f"Recall: {threshold_recall:.3f} | "
+        f"F1: {threshold_f1:.3f}"
+    )
