@@ -5,6 +5,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -192,3 +193,24 @@ for threshold in thresholds_to_test:
         f"Recall: {threshold_recall:.3f} | "
         f"F1: {threshold_f1:.3f}"
     )
+    
+    # Perform 5-fold stratified cross-validation on the training data
+cv = StratifiedKFold(
+    n_splits=5,
+    shuffle=True,
+    random_state=42
+)
+
+cv_scores = cross_val_score(
+    pipeline,
+    X_train,
+    y_train,
+    cv=cv,
+    scoring="roc_auc"
+)
+
+
+print("\n5-fold cross-validation:")
+print(f"Fold ROC-AUC scores: {cv_scores}")
+print(f"Mean ROC-AUC: {cv_scores.mean():.3f}")
+print(f"Standard deviation: {cv_scores.std():.3f}")
