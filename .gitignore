@@ -4,3 +4,6 @@ __pycache__/
 .DS_Store
 .ipynb_checkpoints/
 .env
+
+# Local CDC research data
+data/raw/
